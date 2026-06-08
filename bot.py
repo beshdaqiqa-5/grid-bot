@@ -1,7 +1,7 @@
 import os
 import io
 from PIL import Image
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaDocument
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaDocument, InputMediaPhoto
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -14,39 +14,42 @@ from telegram.ext import (
 TOKEN = os.environ.get("BOT_TOKEN", "")
 
 SIZE_ADVICE = {
-    "1x3":  ("1080 x 3240 px",  "1080 x 1080 px"),
-    "1x4":  ("1080 x 4320 px",  "1080 x 1080 px"),
-    "1x5":  ("1080 x 5400 px",  "1080 x 1080 px"),
-    "1x6":  ("1080 x 6480 px",  "1080 x 1080 px"),
-    "1x7":  ("1080 x 7560 px",  "1080 x 1080 px"),
-    "1x8":  ("1080 x 8640 px",  "1080 x 1080 px"),
-    "1x9":  ("1080 x 9720 px",  "1080 x 1080 px"),
-    "1x10": ("1080 x 10800 px", "1080 x 1080 px"),
-    "3x1":  ("3240 x 1080 px",  "1080 x 1080 px"),
-    "3x2":  ("3240 x 2160 px",  "1080 x 1080 px"),
-    "3x3":  ("3240 x 3240 px",  "1080 x 1080 px"),
+    "1x3":  ("1080x3240 px",  "1080x1080 px"),
+    "1x4":  ("1080x4320 px",  "1080x1080 px"),
+    "1x5":  ("1080x5400 px",  "1080x1080 px"),
+    "1x6":  ("1080x6480 px",  "1080x1080 px"),
+    "1x7":  ("1080x7560 px",  "1080x1080 px"),
+    "1x8":  ("1080x8640 px",  "1080x1080 px"),
+    "1x9":  ("1080x9720 px",  "1080x1080 px"),
+    "1x10": ("1080x10800 px", "1080x1080 px"),
+    "3x1":  ("3240x1080 px",  "1080x1080 px"),
+    "3x2":  ("3240x2160 px",  "1080x1080 px"),
+    "3x3":  ("3240x3240 px",  "1080x1080 px"),
 }
 
 WELCOME = (
     "Salom! Instagram Grid Bot\n\n"
-    "Rasm yuboring - foto yoki fayl sifatida\n\n"
+    "Rasm yuboring -- foto yoki fayl sifatida\n\n"
     "Carousel: 1x3 dan 1x10 gacha\n"
     "Post grid: 3x1 - 3x2 - 3x3\n\n"
     "Sifat saqlanadi (PNG, siqilmagan)\n"
-    "Notogri olcham - markazdan kesiladi\n"
-    "Fayl sifatida qaytariladi"
+    "Notogri olcham bolsa -- markazdan kesiladi\n"
+    "Rasm yoki fayl sifatida qaytariladi"
 )
 
 HELP = (
     "Yordam\n\n"
-    "Carousel - 1 ustun, N qator:\n"
-    "  Har bir qism alohida Instagram slayd.\n\n"
-    "Post Grid - 3 ustun, N qator:\n"
-    "  3x3 = 9 ta post, profilni toldiradi.\n\n"
+    "Carousel -- 1 ustun, N qator:\n"
+    "  Har bir qism alohida Instagram slayd boladi.\n\n"
+    "Post Grid -- 3 ustun, N qator:\n"
+    "  3x3 = 9 ta post, profilda tolik rasm korinadi.\n\n"
     "Olcham maslahati:\n"
     "  Carousel 1xN: 1080 x (1080*N) px\n"
     "  Post 3xN: 3240 x (1080*N) px\n\n"
-    "Notogri olcham bolsa bot markazdan avtomatik kesadi."
+    "Chiqish formati:\n"
+    "  Rasm: tezroq, lekin Telegram siqadi\n"
+    "  Fayl: PNG, siqilmagan, tolik sifat\n\n"
+    "Rasm yuboring -- boshlaylik!"
 )
 
 
@@ -91,6 +94,16 @@ def kb_post():
     ])
 
 
+def kb_output(key):
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("Rasm sifatida", callback_data="out_photo_" + key),
+            InlineKeyboardButton("Fayl sifatida", callback_data="out_file_" + key),
+        ],
+        [InlineKeyboardButton("Orqaga", callback_data="back")],
+    ])
+
+
 def kb_done():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("Xuddi shu rasm, boshqa format", callback_data="reuse_image")],
@@ -109,15 +122,15 @@ def kb_reuse():
     ])
 
 
-async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def cmd_start(update, context):
     await update.message.reply_text(WELCOME)
 
 
-async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def cmd_help(update, context):
     await update.message.reply_text(HELP)
 
 
-async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_media(update, context):
     msg = update.message
     if msg.photo:
         context.user_data["file_id"] = msg.photo[-1].file_id
@@ -132,7 +145,7 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await msg.reply_text("Format turini tanlang:", reply_markup=kb_type())
 
 
-async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_callback(update, context):
     q = update.callback_query
     await q.answer()
     d = q.data
@@ -169,14 +182,14 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if d == "type_carousel":
         await q.edit_message_text(
-            "Carousel - nechta qismga bolish?\n\nHar bir qism alohida Instagram slayd.\nOptimal: 1080 x (1080 x N) px",
+            "Carousel -- nechta qismga bolish?\n\nHar bir qism alohida Instagram slayd.\nOptimal: 1080 x (1080 x N) px",
             reply_markup=kb_carousel(),
         )
         return
 
     if d == "type_post":
         await q.edit_message_text(
-            "Post Grid - olcham tanlang:\n\n3x3 - profilni toldiruvchi 9 ta post\nOptimal: 3240 x (1080 x N) px",
+            "Post Grid -- olcham tanlang:\n\n3x3 = profilni toldiruvchi 9 ta post\nOptimal: 3240 x (1080 x N) px",
             reply_markup=kb_post(),
         )
         return
@@ -185,13 +198,26 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         key = d[4:]
         cols, rows = map(int, key.split("x"))
         total_size, tile_size = SIZE_ADVICE.get(key, ("?", "?"))
-        await q.edit_message_text(
-            f"{cols}x{rows} format tanlandi\n\nTavsiya: {total_size}\nHar bir qism: {tile_size}\n\nTayyorlanmoqda..."
-        )
         if not context.user_data.get("file_id"):
-            await q.message.reply_text("Rasm topilmadi. Qayta yuboring.")
+            await q.edit_message_text("Rasm topilmadi. Qayta yuboring.")
             return
-        await process_grid(q.message, context, cols, rows, key)
+        context.user_data["grid_key"] = key
+        await q.edit_message_text(
+            key + " format tanlandi\n\nTavsiya: " + total_size + "\nHar bir qism: " + tile_size + "\n\nNatijani qanday yuborish kerak?",
+            reply_markup=kb_output(key),
+        )
+        return
+
+    if d.startswith("out_photo_") or d.startswith("out_file_"):
+        as_photo = d.startswith("out_photo_")
+        key = d[10:] if as_photo else d[9:]
+        cols, rows = map(int, key.split("x"))
+        if not context.user_data.get("file_id"):
+            await q.edit_message_text("Rasm topilmadi. Qayta yuboring.")
+            return
+        mode = "rasm" if as_photo else "fayl"
+        await q.edit_message_text(str(cols) + "x" + str(rows) + " grid, " + mode + " sifatida tayyorlanmoqda...")
+        await process_grid(q.message, context, cols, rows, key, as_photo=as_photo)
 
 
 def smart_crop_center(img, cols, rows):
@@ -210,7 +236,7 @@ def smart_crop_center(img, cols, rows):
         return img.crop((0, top, w, top + nh)), True
 
 
-async def process_grid(message, context, cols, rows, key):
+async def process_grid(message, context, cols, rows, key, as_photo=False):
     tg_file = await context.bot.get_file(context.user_data["file_id"])
     raw = await tg_file.download_as_bytearray()
     img = Image.open(io.BytesIO(raw)).convert("RGB")
@@ -228,24 +254,37 @@ async def process_grid(message, context, cols, rows, key):
             b  = t + th if r < rows - 1 else h
             tile = img.crop((l, t, r2, b))
             buf = io.BytesIO()
-            tile.save(buf, format="PNG")
+            fmt = "JPEG" if as_photo else "PNG"
+            save_kwargs = {"quality": 95, "subsampling": 0} if as_photo else {}
+            tile.save(buf, format=fmt, **save_kwargs)
             buf.seek(0)
-            pieces.append((buf, f"{key}_part{r * cols + c + 1:02d}.png"))
+            ext = "jpg" if as_photo else "png"
+            pieces.append((buf, key + "_part" + str(r * cols + c + 1).zfill(2) + "." + ext))
     total = len(pieces)
-    crop_note = f"\nRasm kesildi: {orig_w}x{orig_h} -> {w}x{h} px" if was_cropped else ""
+    crop_note = ("\nRasm kesildi: " + str(orig_w) + "x" + str(orig_h) + " -> " + str(w) + "x" + str(h) + " px") if was_cropped else ""
+    mode_note = "rasm sifatida" if as_photo else "PNG fayl (siqilmagan)"
     for i in range(0, total, 10):
         batch = pieces[i: i + 10]
-        media = [
-            InputMediaDocument(
-                media=buf,
-                filename=fname,
-                caption=f"Qism {i + j + 1}/{total}" if j == 0 else None,
-            )
-            for j, (buf, fname) in enumerate(batch)
-        ]
+        if as_photo:
+            media = [
+                InputMediaPhoto(
+                    media=buf,
+                    caption="Qism " + str(i + j + 1) + "/" + str(total) if j == 0 else None,
+                )
+                for j, (buf, _) in enumerate(batch)
+            ]
+        else:
+            media = [
+                InputMediaDocument(
+                    media=buf,
+                    filename=fname,
+                    caption="Qism " + str(i + j + 1) + "/" + str(total) if j == 0 else None,
+                )
+                for j, (buf, fname) in enumerate(batch)
+            ]
         await context.bot.send_media_group(chat_id=message.chat_id, media=media)
     await message.reply_text(
-        f"Tayyor! {total} ta PNG fayl ({tw}x{th} px){crop_note}\n\nKeyingi qadam:",
+        "Tayyor! " + str(total) + " ta qism -- " + mode_note + " (" + str(tw) + "x" + str(th) + " px)" + crop_note + "\n\nKeyingi qadam:",
         reply_markup=kb_done(),
     )
 
