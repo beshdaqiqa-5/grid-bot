@@ -13,24 +13,25 @@ from telegram.ext import (
 
 TOKEN = os.environ.get("BOT_TOKEN", "")
 
+# Carousel: Nx1 (keng rasm, eniga kesish)
+# Post:     3xN (3 ustun, N qator)
 SIZE_ADVICE = {
-    "1x3":  ("1080x3240 px",  "1080x1080 px"),
-    "1x4":  ("1080x4320 px",  "1080x1080 px"),
-    "1x5":  ("1080x5400 px",  "1080x1080 px"),
-    "1x6":  ("1080x6480 px",  "1080x1080 px"),
-    "1x7":  ("1080x7560 px",  "1080x1080 px"),
-    "1x8":  ("1080x8640 px",  "1080x1080 px"),
-    "1x9":  ("1080x9720 px",  "1080x1080 px"),
-    "1x10": ("1080x10800 px", "1080x1080 px"),
-    "3x1":  ("3240x1080 px",  "1080x1080 px"),
-    "3x2":  ("3240x2160 px",  "1080x1080 px"),
-    "3x3":  ("3240x3240 px",  "1080x1080 px"),
+    "3x1":  ("3240x1080 px",   "1080x1080 px"),
+    "4x1":  ("4320x1080 px",   "1080x1080 px"),
+    "5x1":  ("5400x1080 px",   "1080x1080 px"),
+    "6x1":  ("6480x1080 px",   "1080x1080 px"),
+    "7x1":  ("7560x1080 px",   "1080x1080 px"),
+    "8x1":  ("8640x1080 px",   "1080x1080 px"),
+    "9x1":  ("9720x1080 px",   "1080x1080 px"),
+    "10x1": ("10800x1080 px",  "1080x1080 px"),
+    "3x2":  ("3240x2160 px",   "1080x1080 px"),
+    "3x3":  ("3240x3240 px",   "1080x1080 px"),
 }
 
 WELCOME = (
     "Salom! Instagram Grid Bot\n\n"
     "Rasm yuboring -- foto yoki fayl sifatida\n\n"
-    "Carousel: 1/3 dan 1/10 gacha\n"
+    "Carousel: 1/3 dan 1/10 gacha (eniga kesish)\n"
     "Post grid: 3/1 - 3/2 - 3/3\n\n"
     "Sifat saqlanadi (PNG, siqilmagan)\n"
     "Notogri olcham bolsa -- markazdan kesiladi"
@@ -38,14 +39,12 @@ WELCOME = (
 
 HELP = (
     "Yordam\n\n"
-    "Carousel -- 1 ustun, N qator:\n"
-    "  1/3 = 3 ta slayd, 1/10 = 10 ta slayd\n"
-    "  Har bir qism alohida Instagram slayd boladi.\n\n"
+    "Carousel -- N ustun, 1 qator (eniga kesish):\n"
+    "  1/3 = 3 ta slayd, rasm eniga 3 ga bolinadi\n"
+    "  Optimal: (1080*N) x 1080 px\n\n"
     "Post Grid -- 3 ustun, N qator:\n"
-    "  3/3 = 9 ta post, profilda tolik rasm korinadi.\n\n"
-    "Olcham maslahati:\n"
-    "  Carousel 1/N: 1080 x (1080*N) px\n"
-    "  Post 3/N: 3240 x (1080*N) px\n\n"
+    "  3/3 = 9 ta post, profilda tolik rasm korinadi\n"
+    "  Optimal: 3240 x (1080*N) px\n\n"
     "Chiqish formati:\n"
     "  Rasm: tezroq, lekin Telegram siqadi\n"
     "  Fayl: PNG, siqilmagan, tolik sifat\n\n"
@@ -54,7 +53,6 @@ HELP = (
 
 
 def bottom_kb():
-    """Har doim pastda korinib turadigan klaviatura"""
     return ReplyKeyboardMarkup(
         [
             [KeyboardButton("Rasm yuborish"), KeyboardButton("Yordam")],
@@ -79,20 +77,22 @@ def kb_type():
 
 
 def kb_carousel():
+    # Carousel: eniga kesish -- Nx1
+    # 1/3 = 3 ustun, 1 qator (fmt_3x1)
     return InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("1/3",  callback_data="fmt_1x3"),
-            InlineKeyboardButton("1/4",  callback_data="fmt_1x4"),
-            InlineKeyboardButton("1/5",  callback_data="fmt_1x5"),
+            InlineKeyboardButton("1/3",  callback_data="fmt_3x1"),
+            InlineKeyboardButton("1/4",  callback_data="fmt_4x1"),
+            InlineKeyboardButton("1/5",  callback_data="fmt_5x1"),
         ],
         [
-            InlineKeyboardButton("1/6",  callback_data="fmt_1x6"),
-            InlineKeyboardButton("1/7",  callback_data="fmt_1x7"),
-            InlineKeyboardButton("1/8",  callback_data="fmt_1x8"),
+            InlineKeyboardButton("1/6",  callback_data="fmt_6x1"),
+            InlineKeyboardButton("1/7",  callback_data="fmt_7x1"),
+            InlineKeyboardButton("1/8",  callback_data="fmt_8x1"),
         ],
         [
-            InlineKeyboardButton("1/9",  callback_data="fmt_1x9"),
-            InlineKeyboardButton("1/10", callback_data="fmt_1x10"),
+            InlineKeyboardButton("1/9",  callback_data="fmt_9x1"),
+            InlineKeyboardButton("1/10", callback_data="fmt_10x1"),
         ],
         [
             InlineKeyboardButton("Orqaga",         callback_data="back"),
@@ -102,9 +102,10 @@ def kb_carousel():
 
 
 def kb_post():
+    # Post: 3 ustun, N qator -- 3xN
     return InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("3/1", callback_data="fmt_3x1"),
+            InlineKeyboardButton("3/1", callback_data="fmt_3x1_post"),
             InlineKeyboardButton("3/2", callback_data="fmt_3x2"),
             InlineKeyboardButton("3/3", callback_data="fmt_3x3"),
         ],
@@ -163,7 +164,6 @@ async def cmd_help(update, context):
 
 
 async def handle_text(update, context):
-    """Pastki klaviatura tugmalari"""
     text = update.message.text
     if text == "Yordam":
         await update.message.reply_text(HELP, reply_markup=bottom_kb())
@@ -236,7 +236,7 @@ async def handle_callback(update, context):
 
     if d == "type_carousel":
         await q.edit_message_text(
-            "Carousel -- nechta qismga bolish?\n\n1/3 = 3 ta slayd, 1/10 = 10 ta slayd\nOptimal: 1080 x (1080 x N) px",
+            "Carousel -- nechta qismga bolish?\n\nRasm ENIGA (gorizontal) kesiladi\n1/3 = 3 ta slayd chapdan ongga\nOptimal: (1080 x N) x 1080 px",
             reply_markup=kb_carousel(),
         )
         return
@@ -247,6 +247,10 @@ async def handle_callback(update, context):
             reply_markup=kb_post(),
         )
         return
+
+    # Post uchun 3x1 alohida key
+    if d == "fmt_3x1_post":
+        d = "fmt_3x1"
 
     if d.startswith("fmt_"):
         key = d[4:]
@@ -319,7 +323,6 @@ async def process_grid(message, context, cols, rows, key, as_photo=False):
     total = len(pieces)
     crop_note = ("\nRasm kesildi: " + str(orig_w) + "x" + str(orig_h) + " -> " + str(w) + "x" + str(h) + " px") if was_cropped else ""
     mode_note = "rasm sifatida" if as_photo else "PNG fayl (siqilmagan)"
-    label = str(cols) + "/" + str(rows)
     for i in range(0, total, 10):
         batch = pieces[i: i + 10]
         if as_photo:
