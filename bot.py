@@ -1,7 +1,7 @@
 import os
 import io
 from PIL import Image
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaDocument
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -11,137 +11,253 @@ from telegram.ext import (
     ContextTypes,
 )
 
-# Tokenni environment variable orqali o'rnat (Railway da BOT_TOKEN deb qo'sh)
 TOKEN = os.environ.get("BOT_TOKEN", "")
 
+SIZE_ADVICE = {
+    "1x3":  ("1080 x 3240 px",  "1080 x 1080 px"),
+    "1x4":  ("1080 x 4320 px",  "1080 x 1080 px"),
+    "1x5":  ("1080 x 5400 px",  "1080 x 1080 px"),
+    "1x6":  ("1080 x 6480 px",  "1080 x 1080 px"),
+    "1x7":  ("1080 x 7560 px",  "1080 x 1080 px"),
+    "1x8":  ("1080 x 8640 px",  "1080 x 1080 px"),
+    "1x9":  ("1080 x 9720 px",  "1080 x 1080 px"),
+    "1x10": ("1080 x 10800 px", "1080 x 1080 px"),
+    "3x1":  ("3240 x 1080 px",  "1080 x 1080 px"),
+    "3x2":  ("3240 x 2160 px",  "1080 x 1080 px"),
+    "3x3":  ("3240 x 3240 px",  "1080 x 1080 px"),
+}
 
-# /start
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "👋 Salom! Men rasm Grid Bot man.\n\n"
-        "📸 Menga istalgan rasm yuboring — men uni grid qilib kesib qaytaraman.\n\n"
-        "Masalan: 3x3 = 9 ta teng qism."
-    )
+WELCOME = (
+    "Salom! Instagram Grid Bot\n\n"
+    "Rasm yuboring - foto yoki fayl sifatida\n\n"
+    "Carousel: 1x3 dan 1x10 gacha\n"
+    "Post grid: 3x1 - 3x2 - 3x3\n\n"
+    "Sifat saqlanadi (PNG, siqilmagan)\n"
+    "Notogri olcham - markazdan kesiladi\n"
+    "Fayl sifatida qaytariladi"
+)
+
+HELP = (
+    "Yordam\n\n"
+    "Carousel - 1 ustun, N qator:\n"
+    "  Har bir qism alohida Instagram slayd.\n\n"
+    "Post Grid - 3 ustun, N qator:\n"
+    "  3x3 = 9 ta post, profilni toldiradi.\n\n"
+    "Olcham maslahati:\n"
+    "  Carousel 1xN: 1080 x (1080*N) px\n"
+    "  Post 3xN: 3240 x (1080*N) px\n\n"
+    "Notogri olcham bolsa bot markazdan avtomatik kesadi."
+)
 
 
-# Rasm kelganda
-async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    photo = update.message.photo[-1]  # eng yuqori sifatli versiyasi
-    context.user_data["photo_file_id"] = photo.file_id
-
-    keyboard = [
+def kb_type():
+    return InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("2x2 (4 qism)", callback_data="2x2"),
-            InlineKeyboardButton("3x3 (9 qism)", callback_data="3x3"),
+            InlineKeyboardButton("Carousel", callback_data="type_carousel"),
+            InlineKeyboardButton("Post",     callback_data="type_post"),
+        ],
+        [InlineKeyboardButton("Yordam", callback_data="help")],
+    ])
+
+
+def kb_carousel():
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("1x3",  callback_data="fmt_1x3"),
+            InlineKeyboardButton("1x4",  callback_data="fmt_1x4"),
+            InlineKeyboardButton("1x5",  callback_data="fmt_1x5"),
         ],
         [
-            InlineKeyboardButton("3x4 (12 qism)", callback_data="3x4"),
-            InlineKeyboardButton("4x4 (16 qism)", callback_data="4x4"),
+            InlineKeyboardButton("1x6",  callback_data="fmt_1x6"),
+            InlineKeyboardButton("1x7",  callback_data="fmt_1x7"),
+            InlineKeyboardButton("1x8",  callback_data="fmt_1x8"),
         ],
-        [InlineKeyboardButton("✏️ O'zim kiritaman", callback_data="custom")],
-    ]
-    await update.message.reply_text(
-        "Grid o'lchamini tanlang:",
-        reply_markup=InlineKeyboardMarkup(keyboard),
-    )
+        [
+            InlineKeyboardButton("1x9",  callback_data="fmt_1x9"),
+            InlineKeyboardButton("1x10", callback_data="fmt_1x10"),
+        ],
+        [InlineKeyboardButton("Orqaga", callback_data="back")],
+    ])
 
 
-# Tugma bosilganda
+def kb_post():
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("3x1", callback_data="fmt_3x1"),
+            InlineKeyboardButton("3x2", callback_data="fmt_3x2"),
+            InlineKeyboardButton("3x3", callback_data="fmt_3x3"),
+        ],
+        [InlineKeyboardButton("Orqaga", callback_data="back")],
+    ])
+
+
+def kb_done():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("Xuddi shu rasm, boshqa format", callback_data="reuse_image")],
+        [InlineKeyboardButton("Boshqa rasm yuborish",          callback_data="new_image")],
+        [InlineKeyboardButton("Yordam",                        callback_data="help")],
+    ])
+
+
+def kb_reuse():
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("Carousel", callback_data="type_carousel"),
+            InlineKeyboardButton("Post",     callback_data="type_post"),
+        ],
+        [InlineKeyboardButton("Boshqa rasm yuborish", callback_data="new_image")],
+    ])
+
+
+async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(WELCOME)
+
+
+async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(HELP)
+
+
+async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = update.message
+    if msg.photo:
+        context.user_data["file_id"] = msg.photo[-1].file_id
+    elif msg.document:
+        mime = msg.document.mime_type or ""
+        if not mime.startswith("image/"):
+            await msg.reply_text("Faqat rasm fayllari qabul qilinadi (PNG, JPG, WEBP...)")
+            return
+        context.user_data["file_id"] = msg.document.file_id
+    else:
+        return
+    await msg.reply_text("Format turini tanlang:", reply_markup=kb_type())
+
+
 async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
+    q = update.callback_query
+    await q.answer()
+    d = q.data
 
-    if query.data == "custom":
-        context.user_data["waiting_custom"] = True
-        await query.edit_message_text(
-            "Grid o'lchamini yozing.\nFormat: qatorXustun\nMasalan: 3x3 yoki 2x4"
+    if d == "help":
+        await q.edit_message_text(HELP,
+                                  reply_markup=InlineKeyboardMarkup([
+                                      [InlineKeyboardButton("Orqaga", callback_data="back_from_help")]
+                                  ]))
+        return
+
+    if d == "back_from_help":
+        if context.user_data.get("file_id"):
+            await q.edit_message_text("Format turini tanlang:", reply_markup=kb_type())
+        else:
+            await q.edit_message_text(WELCOME)
+        return
+
+    if d == "new_image":
+        context.user_data.clear()
+        await q.edit_message_text("Yangi rasm yuboring:")
+        return
+
+    if d == "reuse_image":
+        if not context.user_data.get("file_id"):
+            await q.edit_message_text("Rasm topilmadi. Qayta yuboring:")
+            return
+        await q.edit_message_text("Format turini tanlang:", reply_markup=kb_reuse())
+        return
+
+    if d == "back":
+        await q.edit_message_text("Format turini tanlang:", reply_markup=kb_type())
+        return
+
+    if d == "type_carousel":
+        await q.edit_message_text(
+            "Carousel - nechta qismga bolish?\n\nHar bir qism alohida Instagram slayd.\nOptimal: 1080 x (1080 x N) px",
+            reply_markup=kb_carousel(),
         )
         return
 
-    rows, cols = map(int, query.data.split("x"))
-    await query.edit_message_text(f"⏳ {rows}x{cols} grid tayyorlanmoqda...")
-    await process_grid(query.message, context, rows, cols)
-
-
-# Matn kelganda (custom o'lcham uchun)
-async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.user_data.get("waiting_custom"):
-        await update.message.reply_text("Rasm yuboring 📸")
-        return
-
-    text = update.message.text.strip().lower().replace(" ", "")
-    try:
-        parts = text.split("x")
-        rows, cols = int(parts[0]), int(parts[1])
-        if not (1 <= rows <= 10 and 1 <= cols <= 10):
-            raise ValueError
-    except Exception:
-        await update.message.reply_text(
-            "❌ Noto'g'ri format!\nMasalan: 3x3 yoki 4x2 (1-10 oralig'ida)"
+    if d == "type_post":
+        await q.edit_message_text(
+            "Post Grid - olcham tanlang:\n\n3x3 - profilni toldiruvchi 9 ta post\nOptimal: 3240 x (1080 x N) px",
+            reply_markup=kb_post(),
         )
         return
 
-    context.user_data["waiting_custom"] = False
-    await update.message.reply_text(f"⏳ {rows}x{cols} grid tayyorlanmoqda...")
-    await process_grid(update.message, context, rows, cols)
+    if d.startswith("fmt_"):
+        key = d[4:]
+        cols, rows = map(int, key.split("x"))
+        total_size, tile_size = SIZE_ADVICE.get(key, ("?", "?"))
+        await q.edit_message_text(
+            f"{cols}x{rows} format tanlandi\n\nTavsiya: {total_size}\nHar bir qism: {tile_size}\n\nTayyorlanmoqda..."
+        )
+        if not context.user_data.get("file_id"):
+            await q.message.reply_text("Rasm topilmadi. Qayta yuboring.")
+            return
+        await process_grid(q.message, context, cols, rows, key)
 
 
-# Rasmni kesib yuborish
-async def process_grid(message, context: ContextTypes.DEFAULT_TYPE, rows: int, cols: int):
-    file_id = context.user_data.get("photo_file_id")
-    if not file_id:
-        await message.reply_text("❌ Avval rasm yuboring!")
-        return
+def smart_crop_center(img, cols, rows):
+    target = cols / rows
+    w, h = img.size
+    ratio = w / h
+    if abs(ratio - target) < 0.005:
+        return img, False
+    if ratio > target:
+        nw = int(round(h * target))
+        left = (w - nw) // 2
+        return img.crop((left, 0, left + nw, h)), True
+    else:
+        nh = int(round(w / target))
+        top = (h - nh) // 2
+        return img.crop((0, top, w, top + nh)), True
 
-    # Rasmni yuklab olish
-    tg_file = await context.bot.get_file(file_id)
-    file_bytes = await tg_file.download_as_bytearray()
-    img = Image.open(io.BytesIO(file_bytes)).convert("RGB")
 
-    width, height = img.size
-    tile_w = width // cols
-    tile_h = height // rows
-
+async def process_grid(message, context, cols, rows, key):
+    tg_file = await context.bot.get_file(context.user_data["file_id"])
+    raw = await tg_file.download_as_bytearray()
+    img = Image.open(io.BytesIO(raw)).convert("RGB")
+    orig_w, orig_h = img.size
+    img, was_cropped = smart_crop_center(img, cols, rows)
+    w, h = img.size
+    tw = w // cols
+    th = h // rows
     pieces = []
     for r in range(rows):
         for c in range(cols):
-            left = c * tile_w
-            top = r * tile_h
-            right = min(left + tile_w, width)
-            bottom = min(top + tile_h, height)
-
-            tile = img.crop((left, top, right, bottom))
+            l = c * tw
+            t = r * th
+            r2 = l + tw if c < cols - 1 else w
+            b  = t + th if r < rows - 1 else h
+            tile = img.crop((l, t, r2, b))
             buf = io.BytesIO()
             tile.save(buf, format="PNG")
             buf.seek(0)
-            pieces.append(buf)
-
-    # Telegram bir xabarda max 10 ta rasm qabul qiladi
+            pieces.append((buf, f"{key}_part{r * cols + c + 1:02d}.png"))
     total = len(pieces)
-    for batch_start in range(0, total, 10):
-        batch = pieces[batch_start : batch_start + 10]
+    crop_note = f"\nRasm kesildi: {orig_w}x{orig_h} -> {w}x{h} px" if was_cropped else ""
+    for i in range(0, total, 10):
+        batch = pieces[i: i + 10]
         media = [
-            InputMediaPhoto(
-                media=piece,
-                caption=f"Qism {batch_start + i + 1}/{total}" if i == 0 else None,
+            InputMediaDocument(
+                media=buf,
+                filename=fname,
+                caption=f"Qism {i + j + 1}/{total}" if j == 0 else None,
             )
-            for i, piece in enumerate(batch)
+            for j, (buf, fname) in enumerate(batch)
         ]
         await context.bot.send_media_group(chat_id=message.chat_id, media=media)
-
-    await message.reply_text(f"✅ Tayyor! {total} ta qism yuborildi.")
+    await message.reply_text(
+        f"Tayyor! {total} ta PNG fayl ({tw}x{th} px){crop_note}\n\nKeyingi qadam:",
+        reply_markup=kb_done(),
+    )
 
 
 def main():
     if not TOKEN:
-        raise ValueError("BOT_TOKEN environment variable o'rnatilmagan!")
-
+        raise ValueError("BOT_TOKEN ornatilmagan!")
     app = Application.builder().token(TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+    app.add_handler(CommandHandler("start", cmd_start))
+    app.add_handler(CommandHandler("help",  cmd_help))
+    app.add_handler(MessageHandler(filters.PHOTO | filters.Document.IMAGE, handle_media))
     app.add_handler(CallbackQueryHandler(handle_callback))
-
     print("Bot ishga tushdi...")
     app.run_polling(drop_pending_updates=True)
 
