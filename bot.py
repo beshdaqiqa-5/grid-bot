@@ -1,7 +1,7 @@
 import os
 import io
 from PIL import Image
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaDocument, InputMediaPhoto
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaDocument, InputMediaPhoto, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -33,14 +33,13 @@ WELCOME = (
     "Carousel: 1/3 dan 1/10 gacha\n"
     "Post grid: 3/1 - 3/2 - 3/3\n\n"
     "Sifat saqlanadi (PNG, siqilmagan)\n"
-    "Notogri olcham bolsa -- markazdan kesiladi\n"
-    "Rasm yoki fayl sifatida qaytariladi"
+    "Notogri olcham bolsa -- markazdan kesiladi"
 )
 
 HELP = (
     "Yordam\n\n"
     "Carousel -- 1 ustun, N qator:\n"
-    "  1/3 = 3 qismga, 1/10 = 10 qismga\n"
+    "  1/3 = 3 ta slayd, 1/10 = 10 ta slayd\n"
     "  Har bir qism alohida Instagram slayd boladi.\n\n"
     "Post Grid -- 3 ustun, N qator:\n"
     "  3/3 = 9 ta post, profilda tolik rasm korinadi.\n\n"
@@ -50,8 +49,20 @@ HELP = (
     "Chiqish formati:\n"
     "  Rasm: tezroq, lekin Telegram siqadi\n"
     "  Fayl: PNG, siqilmagan, tolik sifat\n\n"
-    "Rasm yuboring -- boshlaylik!"
+    "Pastdagi tugmalar orqali ham boshqarishingiz mumkin!"
 )
+
+
+def bottom_kb():
+    """Har doim pastda korinib turadigan klaviatura"""
+    return ReplyKeyboardMarkup(
+        [
+            [KeyboardButton("Rasm yuborish"), KeyboardButton("Yordam")],
+            [KeyboardButton("Qayta boshlash")],
+        ],
+        resize_keyboard=True,
+        input_field_placeholder="Rasm yuboring yoki tugma bosing...",
+    )
 
 
 def kb_type():
@@ -144,11 +155,25 @@ def kb_reuse():
 
 async def cmd_start(update, context):
     context.user_data.clear()
-    await update.message.reply_text(WELCOME)
+    await update.message.reply_text(WELCOME, reply_markup=bottom_kb())
 
 
 async def cmd_help(update, context):
-    await update.message.reply_text(HELP)
+    await update.message.reply_text(HELP, reply_markup=bottom_kb())
+
+
+async def handle_text(update, context):
+    """Pastki klaviatura tugmalari"""
+    text = update.message.text
+    if text == "Yordam":
+        await update.message.reply_text(HELP, reply_markup=bottom_kb())
+    elif text == "Qayta boshlash":
+        context.user_data.clear()
+        await update.message.reply_text(WELCOME, reply_markup=bottom_kb())
+    elif text == "Rasm yuborish":
+        await update.message.reply_text("Rasm yuboring -- foto yoki fayl sifatida:", reply_markup=bottom_kb())
+    else:
+        await update.message.reply_text("Rasm yuboring yoki pastdagi tugmalardan foydalaning.", reply_markup=bottom_kb())
 
 
 async def handle_media(update, context):
@@ -328,6 +353,7 @@ def main():
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("help",  cmd_help))
     app.add_handler(MessageHandler(filters.PHOTO | filters.Document.IMAGE, handle_media))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.add_handler(CallbackQueryHandler(handle_callback))
     print("Bot ishga tushdi...")
     app.run_polling(drop_pending_updates=True)
